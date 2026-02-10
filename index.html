@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>Checkout Counter System</title>
-   <script src="https://code.jquery.com/jquery-4.0.0.js" integrity="sha256-9fsHeVnKBvqh3FB2HYu7g2xseAZ5MlN6Kz/qnkASV8U=" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-4.0.0.js" integrity="sha256-9fsHeVnKBvqh3FB2HYu7g2xseAZ5MlN6Kz/qnkASV8U=" crossorigin="anonymous"></script>
     <style>
         body {
             margin: 0;
@@ -49,18 +49,10 @@
             border-bottom: 2px solid #2d3436;
         }
 
-        .item {
-            width: 140px; 
-        }
-        .price {
-            width: 70px; 
-        }
-        .qty {
-            width: 90px; 
-        }
-        .available { 
-            width: 80px; 
-        }
+        .item { width: 140px; }
+        .price { width: 70px; }
+        .qty { width: 90px; }
+        .available { width: 80px; }
 
         button {
             background: #0984e3;
@@ -103,19 +95,20 @@
         }
 
         .summary-header span,
-        .summary-row span { 
-            width: 20%; 
-         }
+        .summary-row span {
+            flex: 1;
+            text-align: center;
+        }
 
         .msg {
-             color: red; 
-             font-weight: bold; 
-         }
+            color: red;
+            font-weight: bold;
+        }
 
-        #adminBtn { 
-             position: fixed; 
-             top: 10px; 
-             right: 10px; 
+        #adminBtn {
+            position: fixed;
+            top: 10px;
+            right: 10px;
         }
     </style>
 </head>
@@ -150,8 +143,7 @@
         <div id="menuBody"></div>
         <br>
         <button id="calcBill">Calculate Bill</button>
-        <p><b>Total:</b> Rs. <span id="total"></span></p>
-        <p><b>After Discount Total:</b> Rs. <span id="finalTotal"></span></p>
+        <p><b>Bill:</b> Rs. <span id="total"></span></p>
         <button id="addCustomerBtn">Add to Counter</button>
         <p id="msgMenu" class="msg"></p>
     </div>
@@ -163,8 +155,10 @@
         <div class="summary-header">
             <span>Name</span>
             <span>Items</span>
-            <span>Total</span>
             <span>Type</span>
+            <span>Bill</span>
+            <span>Discount</span>
+            <span>Total(After Discount)</span>
             <span>Counter</span>
         </div>
         <div id="summaryBody"></div>
@@ -190,6 +184,7 @@
     <br>
     <button id="updatePricesBtn">Update Prices</button>
     <button id="logoutAdminBtn">Logout</button>
+    <p id="adminUpdateMsg" class="msg"></p>
 </div>
 
 <script>
@@ -198,6 +193,7 @@ class Customer {
         this.name = name;
         this.phone = phone;
         this.cart = [];
+        this.type = "Regular";
     }
 
     addItem(item, qty) {
@@ -218,9 +214,7 @@ class Customer {
         let r = "";
         for (let i = 0; i < this.cart.length; i++) {
             r += this.cart[i].item.name + "(" + this.cart[i].qty + ")";
-            if (i < this.cart.length -1 ){
-              r += ",";
-            }
+            if (i < this.cart.length - 1) r += ", ";
         }
         return r;
     }
@@ -294,7 +288,6 @@ class Checkout {
     }
 }
 
-// Items and Counters
 let items = [
     { name: "Apple", price: 50, qty: 100 },
     { name: "Orange", price: 30, qty: 100 },
@@ -306,14 +299,126 @@ let items = [
 
 let counters = [ new Counter(1), new Counter(2), new Counter(3) ];
 let checkout = new Checkout();
-
 checkout.buildMenu(items);
 checkout.buildCounters(counters);
 
 let currentCustomer = null;
 let adminUser = "admin";
 let adminPass = "1234";
-let customerHistory = [];
+
+function updateCustomerTypes() {
+    let customersInCounter = [];
+    for (let i = 0; i < counters.length; i++) {
+        for (let j = 0; j < counters[i].queue.length; j++) {
+            customersInCounter.push(counters[i].queue[j]);
+        }
+    }
+
+    if (customersInCounter.length < 2) return;
+
+    let sum = 0;
+    for (let i = 0; i < customersInCounter.length; i++) {
+        sum += customersInCounter[i].calculateTotal();
+    }
+
+    let avg = sum / customersInCounter.length;
+
+    for (let i = 0; i < customersInCounter.length; i++) {
+        if (customersInCounter[i].calculateTotal() > avg) {
+            customersInCounter[i].type = "VIP";
+        } else {
+            customersInCounter[i].type = "Regular";
+        }
+    }
+}
+
+$("#goMenu").click(function() {
+    let n = $("#custName").val();
+    let p = $("#custPhone").val();
+
+    if (!n || !p) {
+        $("#msgCustomer").text("Enter customer details");
+        return;
+    }
+
+    currentCustomer = new Customer(n, p);
+    $("#msgCustomer").text("");
+    $("#menuSection").show();
+});
+
+$("#calcBill").click(function() {
+    currentCustomer.cart = [];
+    $("#msgMenu").text("");
+
+    for (let i = 0; i < items.length; i++) {
+        let qty = ($("#q" + i).val()) || 0;
+        if (qty > items[i].qty) {
+            $("#msgMenu").text("Out of stock: " + items[i].name);
+            return;
+        }
+        currentCustomer.addItem(items[i], qty);
+    }
+
+    let total = currentCustomer.calculateTotal();
+    $("#total").text(total);
+});
+
+$("#addCustomerBtn").click(function() {
+    let min = counters[0];
+    for (let i = 1; i < counters.length; i++) {
+        if (counters[i].queue.length < min.queue.length) min = counters[i];
+    }
+
+    if (!min.addCustomer(currentCustomer)) {
+        $("#msgMenu").text("All counters full");
+        return;
+    }
+
+    for (let i = 0; i < currentCustomer.cart.length; i++) {
+        currentCustomer.cart[i].item.qty -= currentCustomer.cart[i].qty;
+        if (currentCustomer.cart[i].item.qty < 0) currentCustomer.cart[i].item.qty = 0;
+    }
+
+    updateCustomerTypes();
+    checkout.updateQueues(counters);
+    checkout.buildMenu(items);
+
+    for (let i = 0; i < items.length; i++) $("#q" + i).val("");
+    $("#total").text("");
+    currentCustomer = null;
+    $("#menuSection").hide();
+
+    $("#custName").val("");
+    $("#custPhone").val("");
+});
+
+function billingDone(id) {
+    let counter = counters[id - 1];
+    let cust = counter.removeCustomer();
+
+    updateCustomerTypes();
+
+    let bill = cust.calculateTotal();
+    let discount = 0;
+    if (cust.type === "VIP") {
+        discount = bill * 0.1;
+    }
+    let finalTotal = bill - discount;
+
+    let display =
+        "<div class='summary-row'>" +
+            "<span>" + cust.name + "</span>" +
+            "<span>" + cust.listItems() + "</span>" +
+            "<span>" + cust.type + "</span>" +
+            "<span>" + bill + "</span>" +
+            "<span>" + discount + "</span>" +
+            "<span>" + finalTotal + "</span>" +
+            "<span>" + counter.id + "</span>" +
+        "</div>";
+
+    $("#summaryBody").append(display);
+    checkout.updateQueues(counters);
+}
 
 $("#adminBtn").click(function() {
     $("#mainPage").hide();
@@ -343,126 +448,20 @@ $("#updatePricesBtn").click(function() {
         items[i].price = Number($("#p" + i).val());
     }
     checkout.buildMenu(items);
+    $("#adminUpdateMsg").text("Prices are updated");
 });
 
 $("#logoutAdminBtn").click(function() {
     $("#adminPage").hide();
     $("#mainPage").show();
+
+   $("#adminUser").val("");
+   $("#adminPass").val("");
+  
+   $("#adminMsg").text("");
+   $("#adminUpdateMsg").text("");
 });
-
-$("#goMenu").click(function() {
-    let n = $("#custName").val();
-    let p = $("#custPhone").val();
-
-    if (!n || !p) {
-        $("#msgCustomer").text("Enter customer details");
-        return;
-    }
-
-    $("#msgCustomer").text("");
-    currentCustomer = new Customer(n, p);
-    $("#menuSection").show();
-});
-
-$("#calcBill").click(function() {
-    currentCustomer.cart = [];
-    $("#msgMenu").text("");
-
-    for (let i = 0; i < items.length; i++) {
-        let qty = $("#q" + i).val() || 0;
-        if (qty > items[i].qty) {
-            $("#msgMenu").text("Out of stock: " + items[i].name);
-            return;
-        }
-        currentCustomer.addItem(items[i], qty);
-    }
-
-    let total = currentCustomer.calculateTotal();
-    let count = 0;
-    for (let i = 0; i < customerHistory.length; i++) {
-        if (customerHistory[i].name === currentCustomer.name &&
-            customerHistory[i].phone === currentCustomer.phone) {
-            count++;
-        }
-    }
-
-    let finalTotal = total;
-    if (count >= 3) {
-        finalTotal = total - (total * 10 / 100);
-    }
-
-    $("#total").text(total);
-    $("#finalTotal").text(finalTotal);
-});
-
-$("#addCustomerBtn").click(function() {
-    let min = counters[0];
-    for (let i = 1; i < counters.length; i++) {
-        if (counters[i].queue.length < min.queue.length) {
-            min = counters[i];
-        }
-    }
-
-    if (!min.addCustomer(currentCustomer)) {
-        $("#msgMenu").text("All counters full");
-        return;
-    }
-
-    for (let i = 0; i < currentCustomer.cart.length; i++) {
-        currentCustomer.cart[i].item.qty -= currentCustomer.cart[i].qty;
-    }
-
-    checkout.buildMenu(items);
-    checkout.updateQueues(counters);
-
-    currentCustomer = null;
-    $("#menuSection").hide();
-    $("#custName").val("");
-    $("#custPhone").val("");
-    $("#total").text("");
-    $("#finalTotal").text("");
-});
-
-function billingDone(id) {
-    let counter = counters[id - 1];
-    let cust = counter.removeCustomer();
-
-    let count = 0;
-    for (let i = 0; i < customerHistory.length; i++) {
-        if (customerHistory[i].name === cust.name &&
-            customerHistory[i].phone === cust.phone) {
-            count++;
-        }
-    }
-
-    let type = "Regular";
-    if (count >= 3) {
-        type = "VIP";
-    }
-
-    customerHistory.push({ name: cust.name, phone: cust.phone });
-
-    let total = cust.calculateTotal();
-    let finalTotal = total;
-    if (type === "VIP") {
-        finalTotal = total - (total * 10 / 100);
-    }
-
-    let display =
-        "<div class='summary-row'>" +
-            "<span>" + cust.name + "</span>" +
-            "<span>" + cust.listItems() + "</span>" +
-            "<span>" + finalTotal + "</span>" +
-            "<span>" + type + "</span>" +
-            "<span>" + counter.id + "</span>" +
-        "</div>";
-
-    $("#summaryBody").append(display);
-    checkout.updateQueues(counters);
-}
 </script>
 
 </body>
 </html>
-
-
