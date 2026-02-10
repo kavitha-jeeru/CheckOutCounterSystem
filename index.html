@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Checkout Counter System</title>
+    <script src="https://code.jquery.com/jquery-4.0.0.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial;
+            background: #f2f2f2;
+        }
+
+        .header {
+            background: #2d3436;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 22px;
+        }
+
+        .container {
+            width: 90%;
+            margin: auto;
+            margin-top: 20px;
+        }
+
+        .section {
+            background: white;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .customer-row,
+        .menu-header,
+        .menu-row,
+        .summary-header,
+        .summary-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 6px;
+        }
+
+        .menu-header,
+        .summary-header {
+            font-weight: bold;
+            border-bottom: 2px solid #2d3436;
+        }
+
+        .item {
+            width: 140px; 
+        }
+        .price {
+            width: 70px; 
+        }
+        .qty {
+            width: 90px; 
+        }
+        .available { 
+            width: 80px; 
+        }
+
+        button {
+            background: #0984e3;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        input {
+            padding: 6px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .counters {
+            display: flex;
+            gap: 20px;
+        }
+
+        .counter {
+            width: 30%;
+            background: #f1f2f6;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .counter h3 {
+            text-align: center;
+            background: #2d3436;
+            color: white;
+            padding: 6px;
+            border-radius: 5px;
+        }
+
+        .counter ul {
+            list-style: decimal;
+            padding-left: 20px;
+        }
+
+        .summary-header span,
+        .summary-row span { 
+            width: 20%; 
+         }
+
+        .msg {
+             color: red; 
+             font-weight: bold; 
+         }
+
+        #adminBtn { 
+             position: fixed; 
+             top: 10px; 
+             right: 10px; 
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="header">Checkout Counter System</div>
+<button id="adminBtn">Admin</button>
+
+<div class="container" id="mainPage">
+
+    <div class="section">
+        <h2>Customer Details</h2>
+        <div class="customer-row">
+            <span>Name :</span>
+            <input type="text" id="custName">
+            <span>Phone :</span>
+            <input type="text" id="custPhone">
+            <button id="goMenu">Go to Menu</button>
+        </div>
+        <p id="msgCustomer" class="msg"></p>
+    </div>
+
+    <div class="section" id="menuSection" style="display:none;">
+        <h2>Menu</h2>
+        <div class="menu-header">
+            <span class="item">Item</span>
+            <span class="price">Price</span>
+            <span class="available">Available</span>
+            <span class="qty">Buy Qty</span>
+        </div>
+        <div id="menuBody"></div>
+        <br>
+        <button id="calcBill">Calculate Bill</button>
+        <p><b>Total:</b> Rs. <span id="total"></span></p>
+        <p><b>After Discount Total:</b> Rs. <span id="finalTotal"></span></p>
+        <button id="addCustomerBtn">Add to Counter</button>
+        <p id="msgMenu" class="msg"></p>
+    </div>
+
+    <div class="section counters" id="counterArea"></div>
+
+    <div class="section">
+        <h2>Summary</h2>
+        <div class="summary-header">
+            <span>Name</span>
+            <span>Items</span>
+            <span>Total</span>
+            <span>Type</span>
+            <span>Counter</span>
+        </div>
+        <div id="summaryBody"></div>
+    </div>
+
+</div>
+
+<div class="section" id="adminLogin" style="display:none;">
+    <h2>Admin Login</h2>
+    Username : <input type="text" id="adminUser"><br><br>
+    Password : <input type="password" id="adminPass"><br><br>
+    <button id="loginAdminBtn">Login</button>
+    <p id="adminMsg" class="msg"></p>
+</div>
+
+<div class="section" id="adminPage" style="display:none;">
+    <h2>Admin Page</h2>
+    <div class="menu-header">
+        <span class="item">Item</span>
+        <span class="price">Set Price</span>
+    </div>
+    <div id="adminMenu"></div>
+    <br>
+    <button id="updatePricesBtn">Update Prices</button>
+    <button id="logoutAdminBtn">Logout</button>
+</div>
+
+<script>
+class Customer {
+    constructor(name, phone) {
+        this.name = name;
+        this.phone = phone;
+        this.cart = [];
+    }
+
+    addItem(item, qty) {
+        if (qty > 0) {
+            this.cart.push({ item: item, qty: qty });
+        }
+    }
+
+    calculateTotal() {
+        let sum = 0;
+        for (let i = 0; i < this.cart.length; i++) {
+            sum += this.cart[i].item.price * this.cart[i].qty;
+        }
+        return sum;
+    }
+
+    listItems() {
+        let r = "";
+        for (let i = 0; i < this.cart.length; i++) {
+            r += this.cart[i].item.name + "(" + this.cart[i].qty + ")";
+        }
+        return r;
+    }
+}
+
+class Counter {
+    constructor(id, max = 3) {
+        this.id = id;
+        this.queue = [];
+        this.max = max;
+    }
+
+    addCustomer(c) {
+        if (this.queue.length < this.max) {
+            this.queue.push(c);
+            return true;
+        }
+        return false;
+    }
+
+    removeCustomer() {
+        return this.queue.shift();
+    }
+
+    getQueueNames() {
+        let n = [];
+        for (let i = 0; i < this.queue.length; i++) {
+            n.push(this.queue[i].name);
+        }
+        return n;
+    }
+}
+
+class Checkout {
+    buildMenu(items) {
+        let display = "";
+        for (let i = 0; i < items.length; i++) {
+            display +=
+                "<div class='menu-row'>" +
+                    "<span class='item'>" + items[i].name + "</span>" +
+                    "<span class='price'>" + items[i].price + "</span>" +
+                    "<span class='available'>" + items[i].qty + "</span>" +
+                    "<input type='number' class='qty' id='q" + i + "'>" +
+                "</div>";
+        }
+        $("#menuBody").html(display);
+    }
+
+    buildCounters(counters) {
+        let display = "";
+        for (let i = 0; i < counters.length; i++) {
+            display +=
+                "<div class='counter'>" +
+                    "<h3>Counter " + counters[i].id + "</h3>" +
+                    "<ul id='queue" + counters[i].id + "'></ul>" +
+                    "<button onclick='billingDone(" + counters[i].id + ")'>Billing Done</button>" +
+                "</div>";
+        }
+        $("#counterArea").html(display);
+    }
+
+    updateQueues(counters) {
+        for (let i = 0; i < counters.length; i++) {
+            let ul = $("#queue" + counters[i].id);
+            ul.html("");
+            let names = counters[i].getQueueNames();
+            for (let j = 0; j < names.length; j++) {
+                ul.append("<li>" + names[j] + "</li>");
+            }
+        }
+    }
+}
+
+// Items and Counters
+let items = [
+    { name: "Apple", price: 50, qty: 100 },
+    { name: "Orange", price: 30, qty: 100 },
+    { name: "Carrot", price: 20, qty: 100 },
+    { name: "Beetroot", price: 25, qty: 100 },
+    { name: "Chocolate", price: 80, qty: 100 },
+    { name: "Icecream", price: 60, qty: 100 }
+];
+
+let counters = [ new Counter(1), new Counter(2), new Counter(3) ];
+let checkout = new Checkout();
+
+checkout.buildMenu(items);
+checkout.buildCounters(counters);
+
+let currentCustomer = null;
+let adminUser = "admin";
+let adminPass = "1234";
+let customerHistory = [];
+
+$("#adminBtn").click(function() {
+    $("#mainPage").hide();
+    $("#adminLogin").show();
+});
+
+$("#loginAdminBtn").click(function() {
+    if ($("#adminUser").val() === adminUser && $("#adminPass").val() === adminPass) {
+        $("#adminLogin").hide();
+        let display = "";
+        for (let i = 0; i < items.length; i++) {
+            display +=
+                "<div class='menu-row'>" +
+                    "<span class='item'>" + items[i].name + "</span>" +
+                    "<input type='number' class='price' id='p" + i + "' value='" + items[i].price + "'>" +
+                "</div>";
+        }
+        $("#adminMenu").html(display);
+        $("#adminPage").show();
+    } else {
+        $("#adminMsg").text("Invalid username/password");
+    }
+});
+
+$("#updatePricesBtn").click(function() {
+    for (let i = 0; i < items.length; i++) {
+        items[i].price = Number($("#p" + i).val());
+    }
+    checkout.buildMenu(items);
+});
+
+$("#logoutAdminBtn").click(function() {
+    $("#adminPage").hide();
+    $("#mainPage").show();
+});
+
+$("#goMenu").click(function() {
+    let n = $("#custName").val();
+    let p = $("#custPhone").val();
+
+    if (!n || !p) {
+        $("#msgCustomer").text("Enter customer details");
+        return;
+    }
+
+    $("#msgCustomer").text("");
+    currentCustomer = new Customer(n, p);
+    $("#menuSection").show();
+});
+
+$("#calcBill").click(function() {
+    currentCustomer.cart = [];
+    $("#msgMenu").text("");
+
+    for (let i = 0; i < items.length; i++) {
+        let qty = $("#q" + i).val() || 0;
+        if (qty > items[i].qty) {
+            $("#msgMenu").text("Out of stock: " + items[i].name);
+            return;
+        }
+        currentCustomer.addItem(items[i], qty);
+    }
+
+    let total = currentCustomer.calculateTotal();
+    let count = 0;
+    for (let i = 0; i < customerHistory.length; i++) {
+        if (customerHistory[i].name === currentCustomer.name &&
+            customerHistory[i].phone === currentCustomer.phone) {
+            count++;
+        }
+    }
+
+    let finalTotal = total;
+    if (count >= 3) {
+        finalTotal = total - (total * 10 / 100);
+    }
+
+    $("#total").text(total);
+    $("#finalTotal").text(finalTotal);
+});
+
+$("#addCustomerBtn").click(function() {
+    let min = counters[0];
+    for (let i = 1; i < counters.length; i++) {
+        if (counters[i].queue.length < min.queue.length) {
+            min = counters[i];
+        }
+    }
+
+    if (!min.addCustomer(currentCustomer)) {
+        $("#msgMenu").text("All counters full");
+        return;
+    }
+
+    for (let i = 0; i < currentCustomer.cart.length; i++) {
+        currentCustomer.cart[i].item.qty -= currentCustomer.cart[i].qty;
+    }
+
+    checkout.buildMenu(items);
+    checkout.updateQueues(counters);
+
+    currentCustomer = null;
+    $("#menuSection").hide();
+    $("#custName").val("");
+    $("#custPhone").val("");
+    $("#total").text("");
+    $("#finalTotal").text("");
+});
+
+function billingDone(id) {
+    let counter = counters[id - 1];
+    let cust = counter.removeCustomer();
+
+    let count = 0;
+    for (let i = 0; i < customerHistory.length; i++) {
+        if (customerHistory[i].name === cust.name &&
+            customerHistory[i].phone === cust.phone) {
+            count++;
+        }
+    }
+
+    let type = "Regular";
+    if (count >= 3) {
+        type = "VIP";
+    }
+
+    customerHistory.push({ name: cust.name, phone: cust.phone });
+
+    let total = cust.calculateTotal();
+    let finalTotal = total;
+    if (type === "VIP") {
+        finalTotal = total - (total * 10 / 100);
+    }
+
+    let display =
+        "<div class='summary-row'>" +
+            "<span>" + cust.name + "</span>" +
+            "<span>" + cust.listItems() + "</span>" +
+            "<span>" + finalTotal + "</span>" +
+            "<span>" + type + "</span>" +
+            "<span>" + counter.id + "</span>" +
+        "</div>";
+
+    $("#summaryBody").append(display);
+    checkout.updateQueues(counters);
+}
+</script>
+
+</body>
+</html>
