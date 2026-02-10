@@ -219,6 +219,9 @@ class Customer {
         let r = "";
         for (let i = 0; i < this.cart.length; i++) {
             r += this.cart[i].item.name + "(" + this.cart[i].qty + ")";
+            if (i < this.cart.length -1 ){
+              r += ",";
+            }
         }
         return r;
     }
@@ -462,3 +465,4 @@ function billingDone(id) {
 
 </body>
 </html>
+
