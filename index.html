@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>Checkout Counter System</title>
-    <script src="https://code.jquery.com/jquery-4.0.0.js" integrity="sha256-9fsHeVnKBvqh3FB2HYu7g2xseAZ5MlN6Kz/qnkASV8U=" crossorigin="anonymous"></script>
+
     <style>
         body {
             margin: 0;
@@ -49,10 +49,29 @@
             border-bottom: 2px solid #2d3436;
         }
 
-        .item { width: 140px; }
-        .price { width: 70px; }
-        .qty { width: 90px; }
-        .available { width: 80px; }
+        .item {
+            width: 140px;
+        }
+
+        .price {
+            width: 70px;
+        }
+
+        .qty {
+            width: 90px;
+        }
+
+        .available {
+            width: 80px;
+        }
+
+        .summary-header span,
+        .summary-row span {
+            flex: 1;
+            white-space: normal;
+            word-break: break-word;
+            text-align: center;
+        }
 
         button {
             background: #0984e3;
@@ -94,14 +113,13 @@
             padding-left: 20px;
         }
 
-        .summary-header span,
-        .summary-row span {
-            flex: 1;
-            text-align: center;
-        }
-
         .msg {
             color: red;
+            font-weight: bold;
+        }
+
+        .msg-success {
+            color: green;
             font-weight: bold;
         }
 
@@ -110,9 +128,12 @@
             top: 10px;
             right: 10px;
         }
+
+        #showSummaryBtn {
+            margin-bottom: 10px;
+        }
     </style>
 </head>
-
 <body>
 
 <div class="header">Checkout Counter System</div>
@@ -143,25 +164,28 @@
         <div id="menuBody"></div>
         <br>
         <button id="calcBill">Calculate Bill</button>
-        <p><b>Bill:</b> Rs. <span id="total"></span></p>
+        <p><b>Total:</b> Rs. <span id="total"></span></p>
+        <p><b>After Discount:</b> Rs. <span id="finalTotal"></span></p>
         <button id="addCustomerBtn">Add to Counter</button>
         <p id="msgMenu" class="msg"></p>
     </div>
 
     <div class="section counters" id="counterArea"></div>
 
-    <div class="section">
-        <h2>Summary</h2>
-        <div class="summary-header">
-            <span>Name</span>
-            <span>Items</span>
-            <span>Type</span>
-            <span>Bill</span>
-            <span>Discount</span>
-            <span>Total(After Discount)</span>
-            <span>Counter</span>
+    <div class="section" id="summarySectionWrapper">
+        <button id="showSummaryBtn">Show Summary</button>
+        <div id="summarySection" style="display:none; margin-top:10px;">
+            <div class="summary-header">
+                <span>Name</span>
+                <span>Items</span>
+                <span>Type</span>
+                <span>Bill</span>
+                <span>Discount</span>
+                <span>Final Bill</span>
+                <span>Counter</span>
+            </div>
+            <div id="summaryBody"></div>
         </div>
-        <div id="summaryBody"></div>
     </div>
 
 </div>
@@ -171,7 +195,7 @@
     Username : <input type="text" id="adminUser"><br><br>
     Password : <input type="password" id="adminPass"><br><br>
     <button id="loginAdminBtn">Login</button>
-    <p id="adminMsg" class="msg"></p>
+    <p id="adminLoginMsg" class="msg"></p>
 </div>
 
 <div class="section" id="adminPage" style="display:none;">
@@ -184,8 +208,10 @@
     <br>
     <button id="updatePricesBtn">Update Prices</button>
     <button id="logoutAdminBtn">Logout</button>
-    <p id="adminUpdateMsg" class="msg"></p>
+    <p id="adminPageMsg" class="msg-success"></p>
 </div>
+
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 
 <script>
 class Customer {
@@ -193,12 +219,13 @@ class Customer {
         this.name = name;
         this.phone = phone;
         this.cart = [];
-        this.type = "Regular";
     }
 
     addItem(item, qty) {
         if (qty > 0) {
-            this.cart.push({ item: item, qty: qty });
+            this.cart.push({
+            item: item, qty: qty 
+           });
         }
     }
 
@@ -215,8 +242,8 @@ class Customer {
         for (let i = 0; i < this.cart.length; i++) {
             r += this.cart[i].item.name + "(" + this.cart[i].qty + ")";
             if (i < this.cart.length - 1) {
-                r += ", ";
-            }   
+                r += ",";
+            }
         }
         return r;
     }
@@ -242,11 +269,11 @@ class Counter {
     }
 
     getQueueNames() {
-        let n = [];
+        let names = [];
         for (let i = 0; i < this.queue.length; i++) {
-            n.push(this.queue[i].name);
+            names.push(this.queue[i].name);
         }
-        return n;
+        return names;
     }
 }
 
@@ -282,9 +309,9 @@ class Checkout {
         for (let i = 0; i < counters.length; i++) {
             let ul = $("#queue" + counters[i].id);
             ul.html("");
-            let names = counters[i].getQueueNames();
-            for (let j = 0; j < names.length; j++) {
-                ul.append("<li>" + names[j] + "</li>");
+            let q = counters[i].queue;
+            for (let j = 0; j < q.length; j++) {
+                ul.append("<li>" + q[j].name + "</li>");
             }
         }
     }
@@ -299,40 +326,17 @@ let items = [
     { name: "Icecream", price: 60, qty: 100 }
 ];
 
-let counters = [ new Counter(1), new Counter(2), new Counter(3) ];
+let counters = [new Counter(1), new Counter(2), new Counter(3)];
 let checkout = new Checkout();
 checkout.buildMenu(items);
 checkout.buildCounters(counters);
 
 let currentCustomer = null;
+let customerHistory = [];
+let allBills = [];
+
 let adminUser = "admin";
 let adminPass = "1234";
-
-function updateCustomerTypes() {
-    let customersInCounter = [];
-    for (let i = 0; i < counters.length; i++) {
-        for (let j = 0; j < counters[i].queue.length; j++) {
-            customersInCounter.push(counters[i].queue[j]);
-        }
-    }
-
-    if (customersInCounter.length < 2) return;
-
-    let sum = 0;
-    for (let i = 0; i < customersInCounter.length; i++) {
-        sum += customersInCounter[i].calculateTotal();
-    }
-
-    let avg = sum / customersInCounter.length;
-
-    for (let i = 0; i < customersInCounter.length; i++) {
-        if (customersInCounter[i].calculateTotal() > avg) {
-            customersInCounter[i].type = "VIP";
-        } else {
-            customersInCounter[i].type = "Regular";
-        }
-    }
-}
 
 $("#goMenu").click(function() {
     let n = $("#custName").val();
@@ -343,8 +347,8 @@ $("#goMenu").click(function() {
         return;
     }
 
-    currentCustomer = new Customer(n, p);
     $("#msgCustomer").text("");
+    currentCustomer = new Customer(n, p);
     $("#menuSection").show();
 });
 
@@ -353,7 +357,7 @@ $("#calcBill").click(function() {
     $("#msgMenu").text("");
 
     for (let i = 0; i < items.length; i++) {
-        let qty = ($("#q" + i).val()) || 0;
+        let qty = $("#q" + i).val() || 0;
         if (qty > items[i].qty) {
             $("#msgMenu").text("Out of stock: " + items[i].name);
             return;
@@ -363,12 +367,15 @@ $("#calcBill").click(function() {
 
     let total = currentCustomer.calculateTotal();
     $("#total").text(total);
+    $("#finalTotal").text(total);
 });
 
 $("#addCustomerBtn").click(function() {
     let min = counters[0];
     for (let i = 1; i < counters.length; i++) {
-        if (counters[i].queue.length < min.queue.length) min = counters[i];
+        if (counters[i].queue.length < min.queue.length) {
+            min = counters[i];
+        }
     }
 
     if (!min.addCustomer(currentCustomer)) {
@@ -378,49 +385,26 @@ $("#addCustomerBtn").click(function() {
 
     for (let i = 0; i < currentCustomer.cart.length; i++) {
         currentCustomer.cart[i].item.qty -= currentCustomer.cart[i].qty;
-        if (currentCustomer.cart[i].item.qty < 0) currentCustomer.cart[i].item.qty = 0;
     }
 
-    updateCustomerTypes();
-    checkout.updateQueues(counters);
     checkout.buildMenu(items);
+    checkout.updateQueues(counters);
 
-    for (let i = 0; i < items.length; i++) $("#q" + i).val("");
-    $("#total").text("");
     currentCustomer = null;
     $("#menuSection").hide();
-
     $("#custName").val("");
     $("#custPhone").val("");
+    $("#total").text("");
+    $("#finalTotal").text("");
+
+    for (let i = 0; i < items.length; i++) {
+        $("#q" + i).val("");
+    }
 });
 
-function billingDone(id) {
-    let counter = counters[id - 1];
-    let cust = counter.removeCustomer();
-
-    updateCustomerTypes();
-
-    let bill = cust.calculateTotal();
-    let discount = 0;
-    if (cust.type === "VIP") {
-        discount = bill * 0.1;
-    }
-    let finalTotal = bill - discount;
-
-    let display =
-        "<div class='summary-row'>" +
-            "<span>" + cust.name + "</span>" +
-            "<span>" + cust.listItems() + "</span>" +
-            "<span>" + cust.type + "</span>" +
-            "<span>" + bill + "</span>" +
-            "<span>" + discount + "</span>" +
-            "<span>" + finalTotal + "</span>" +
-            "<span>" + counter.id + "</span>" +
-        "</div>";
-
-    $("#summaryBody").append(display);
-    checkout.updateQueues(counters);
-}
+$("#showSummaryBtn").click(function() {
+    $("#summarySection").show();
+});
 
 $("#adminBtn").click(function() {
     $("#mainPage").hide();
@@ -440,8 +424,9 @@ $("#loginAdminBtn").click(function() {
         }
         $("#adminMenu").html(display);
         $("#adminPage").show();
+        $("#adminLoginMsg").text("");
     } else {
-        $("#adminMsg").text("Invalid username/password");
+        $("#adminLoginMsg").text("Invalid username/password");
     }
 });
 
@@ -450,21 +435,91 @@ $("#updatePricesBtn").click(function() {
         items[i].price = Number($("#p" + i).val());
     }
     checkout.buildMenu(items);
-    $("#adminUpdateMsg").text("Prices are updated");
+    $("#adminPageMsg").text("Prices are updated").css("color", "green");
 });
 
 $("#logoutAdminBtn").click(function() {
     $("#adminPage").hide();
     $("#mainPage").show();
-
-   $("#adminUser").val("");
-   $("#adminPass").val("");
-  
-   $("#adminMsg").text("");
-   $("#adminUpdateMsg").text("");
+    $("#adminUser").val("");
+    $("#adminPass").val("");
+    $("#adminLoginMsg").text("");
+    $("#adminPageMsg").text("");
 });
+
+function billingDone(id) {
+    let counter = counters[id - 1];
+    let cust = counter.removeCustomer();
+
+    if (!cust) {
+        return;
+    }
+
+    let bill = cust.calculateTotal();
+    allBills.push(bill);
+
+    let sum = 0;
+    for (let i = 0; i < allBills.length; i++) {
+        sum += allBills[i];
+    }
+
+    let avg = sum / allBills.length;
+
+    let existing = null;
+    for (let i = 0; i < customerHistory.length; i++) {
+        if (customerHistory[i].name === cust.name && customerHistory[i].phone === cust.phone) {
+            existing = customerHistory[i];
+            break;
+        }
+    }
+
+    let type = "Regular";
+
+    if (!existing) {
+        customerHistory.push({ 
+             name: cust.name,
+             phone: cust.phone, 
+             type: "Regular" });
+    } else {
+        if (bill > avg) {
+            existing.type = "VIP";
+            type = "VIP";
+        } else {
+            existing.type = "Regular";
+            type = "Regular";
+        }
+    }
+
+    let discount = 0;
+    let finalBill = bill;
+    if (type === "VIP") {
+        discount = bill * 10 / 100;
+        finalBill = bill - discount;
+    }
+
+    let display =
+        "<div class='summary-row'>" +
+            "<span>" + cust.name + "</span>" +
+            "<span>" + cust.listItems() + "</span>" +
+            "<span>" + type + "</span>" +
+            "<span>" + bill + "</span>" +
+            "<span>" + discount + "</span>" +
+            "<span>" + finalBill + "</span>" +
+            "<span>" + counter.id + "</span>" +
+        "</div>";
+
+    $("#summaryBody").append(display);
+
+    for (let i = 0; i < counters.length; i++) {
+        let ul = $("#queue" + counters[i].id);
+        ul.html("");
+        let q = counters[i].queue;
+        for (let j = 0; j < q.length; j++) {
+            ul.append("<li>" + q[j].name + "</li>");
+        }
+    }
+}
 </script>
 
 </body>
 </html>
-
